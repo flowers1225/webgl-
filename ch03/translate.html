@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec4 a_Position;
+        uniform vec4 u_Translation;
+
+        void main () {
+            gl_Position = a_Position + u_Translation;
+        }
+
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        void main () {
+            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        }
+    </script>
+
+    <script>
+        let gl, canvas;
+
+        function getShader (id, type) {
+
+            let shaderContent = document.getElementById(id).textContent;
+            let shader = gl.createShader(gl[type]);
+
+            // Set the shader program
+            gl.shaderSource(shader, shaderContent);
+
+            // Compile the shader
+            gl.compileShader(shader);
+
+            // Check the result of compilation
+            if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+
+                let error = gl.getShaderInfoLog(shader);
+
+                console.log('Failed to compile shader: ' + error);
+
+                gl.deleteShader(shader);
+
+                return null;
+            }
+
+            return shader;
+            https://github.com/flowers1225/webgl-.git
+        }
+
+        function initShader () {
+
+            let fragmentShader = getShader('fs', 'FRAGMENT_SHADER');
+            let vertexShader =  getShader('vs','VERTEX_SHADER');
+
+            //console.log(fragmentShader);
+            //console.log(vertexShader);
+            // Create a program object
+            let program = gl.createProgram();
+
+            // Attach the shader objects
+            gl.attachShader(program, fragmentShader);
+            gl.attachShader(program, vertexShader);
+
+            // Link the program object
+            gl.linkProgram(program);
+
+            if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+
+                let error = gl.getProgramInfoLog(shader);
+
+                console.log('Failed to link program: ' + error);
+                gl.deleteProgram(program);
+
+                gl.deleteShader(fragmentShader);
+
+                gl.deleteShader(vertexShader);
+
+                return null;
+
+            }
+
+            gl.useProgram(program);
+
+            gl.program = program;
+
+        }
+
+        function initVertexBuffers() {
+
+            let vertices = new Float32Array([
+                -0.5, 0.5,
+                -0,0,
+                0.5,0.5,
+                0.3,0,
+                0.5,0.3,
+            ]);
+
+            let n = 3;
+
+            let vertexBuffer = gl.createBuffer();
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+            let a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+
+            gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, 0, 0); //缓冲区对象进行分配
+
+            gl.enableVertexAttribArray(a_Position);  //开启attribute变量
+
+            return n;
+        }
+
+        function init () {
+
+            let tx =0.3, ty = 0.3, tz = 0;
+
+            canvas = document.getElementById('webgl');
+
+            gl = canvas.getContext('webgl');
+
+            if (!gl) {
+                console.log('Failed to get the rendering context for WebGL');
+                return;
+            }
+
+
+            initShader();
+
+            let n = initVertexBuffers();
+
+            //将位移偏亮传入着色器
+            let u_Translation = gl.getUniformLocation(gl.program, 'u_Translation');
+
+            gl.uniform4f(u_Translation, tx, ty, tz, 0.0);
+
+            gl.clearColor(0, 0, 0, 1);
+
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, n) //0代表从第几个点开始绘制， n表示绘制几个点
+            //gl.drawArrays(gl.TRIANGLE_FAN, 0, n); //以最后一条边为基础画第二个
+            //gl.drawArrays(gl.TRIANGLE_STRIP, 0, n); 以第二个点为起点开始画第二个三角
+
+
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>
