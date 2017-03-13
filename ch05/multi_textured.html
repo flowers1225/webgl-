@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec4 a_Position;
+        attribute vec2 a_texture;
+        varying vec2 v_texture;
+
+        void main () {
+            gl_Position = a_Position;
+            v_texture = a_texture;
+        }
+
+    </script>
+    <script id="fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+        uniform sampler2D u_sampler;
+        uniform sampler2D u_sampler2;
+
+        varying vec2 v_texture;
+
+        void main () {
+            vec4 texture1 = texture2D(u_sampler, v_texture);
+            vec4 texture2 = texture2D(u_sampler2, v_texture);
+
+            gl_FragColor = texture1 * texture2;
+        }
+
+    </script>
+
+    <script>
+        let gl, canvas;
+
+        let imgConfig = [
+            {
+                src: '../texture/sky.jpg',
+                samplerName: 'u_sampler',
+                textureNum: 'TEXTURE0',
+                num: 0,
+            },
+            {
+                src: '../texture/circle.gif',
+                samplerName: 'u_sampler2',
+                textureNum: 'TEXTURE1',
+                num: 1,
+            }
+        ];
+
+        function getShader (id, type) {
+
+            let shaderContent = document.getElementById(id).textContent;
+            let shader = gl.createShader(gl[type]);
+
+            // Set the shader program
+            gl.shaderSource(shader, shaderContent);
+
+            // Compile the shader
+            gl.compileShader(shader);
+
+            // Check the result of compilation
+            if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+
+                let error = gl.getShaderInfoLog(shader);
+
+                console.log('Failed to compile shader: ' + error);
+
+                gl.deleteShader(shader);
+
+                return null;
+            }
+
+            return shader;
+
+        }
+
+        function initShader () {
+
+            let fragmentShader = getShader('fs', 'FRAGMENT_SHADER');
+            let vertexShader =  getShader('vs','VERTEX_SHADER');
+
+            //console.log(fragmentShader);
+            //console.log(vertexShader);
+            // Create a program object
+            let program = gl.createProgram();
+
+            // Attach the shader objects
+            gl.attachShader(program, fragmentShader);
+            gl.attachShader(program, vertexShader);
+
+            // Link the program object
+            gl.linkProgram(program);
+
+            if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+
+                let error = gl.getProgramInfoLog(shader);
+
+                console.log('Failed to link program: ' + error);
+                gl.deleteProgram(program);
+
+                gl.deleteShader(fragmentShader);
+
+                gl.deleteShader(vertexShader);
+
+                return null;
+
+            }
+
+            gl.useProgram(program);
+
+            gl.program = program;
+
+        }
+
+
+        /*
+         *  顶点着色器接收顶点纹理坐标，光栅化后传入片元着色器  v_texture
+         *
+         *  片元着色器根据片元的纹理坐标， 从图像中抽取出纹理颜色， 赋值当前片元 loadTexture
+         *
+         * */
+
+        function initVertexBuffers() {
+
+            let verticesTexture = new Float32Array([
+                -0.5, 0.5,  0.0, 1.0,
+                -0.5, -0.5, 0.0, 0.0,
+                0.5 , 0.5,  1.0, 1.0,
+                0.5,  -0.5, 1.0, 0.0,
+            ]);
+
+            let n = 4;
+
+            let vertexTextureBuffer = gl.createBuffer();
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, verticesTexture, gl.STATIC_DRAW);
+
+            let fSize = verticesTexture.BYTES_PER_ELEMENT;
+
+            let a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+
+            gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, fSize * 4, 0); //缓冲区对象进行分配
+
+            gl.enableVertexAttribArray(a_Position);  //开启attribute变量
+
+            let a_texture = gl.getAttribLocation(gl.program, 'a_texture');
+
+            gl.vertexAttribPointer(a_texture, 2, gl.FLOAT, false, fSize * 4, fSize * 2);
+
+            gl.enableVertexAttribArray(a_texture);
+
+            return n;
+        }
+
+        function initTextures(n) {
+
+            function loadTexture (config) {
+
+                return new Promise((resolve, reject) => {
+
+                    let texture = gl.createTexture();
+
+                    let u_sampler = gl.getUniformLocation(gl.program, config.samplerName);
+
+                    let image = new Image();
+
+                    image.onload = function() {
+
+                        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+
+                        gl.activeTexture(gl[config.textureNum]);
+
+                        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+                        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+
+                        gl.uniform1i(u_sampler, config.num);
+
+                        resolve();
+                    };
+
+                    image.onerror = function() {
+                        reject(new Error('Could not load image at ' + config.src));
+                    };
+
+                    image.src = config.src;
+
+                });
+            }
+
+            let promise = imgConfig.map( config => {
+
+                 return loadTexture(config);
+            });
+
+            Promise.all(promise).then(() => {
+
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, n);
+
+            }).catch( err => {
+
+                console.log(err);
+
+            });
+
+        }
+
+        function init () {
+
+            canvas = document.getElementById('webgl');
+
+            gl = canvas.getContext('webgl');
+
+            if (!gl) {
+                console.log('Failed to get the rendering context for WebGL');
+                return;
+            }
+
+            initShader();
+
+            let n = initVertexBuffers();
+
+            gl.clearColor(0, 0, 0, 1);
+
+            initTextures(n);
+
+
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

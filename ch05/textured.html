@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec4 a_Position;
+        attribute vec2 a_texture;
+        varying vec2 v_texture;
+
+        void main () {
+            gl_Position = a_Position;
+            v_texture = a_texture;
+        }
+
+    </script>
+
+    <!--
+        sampler2D   绑定到gl.TEXTURE_2D 上的纹理数据类型
+        samplerCube 绑定到gl.TEXTURE_CUBE_MAP 上的纹理数据类型
+    -->
+    <script id="fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+        uniform sampler2D u_sampler;
+        varying vec2 v_texture;
+
+        void main () {
+            gl_FragColor = texture2D(u_sampler, v_texture);
+        }
+
+    </script>
+
+    <script>
+        let gl, canvas;
+
+        function getShader (id, type) {
+
+            let shaderContent = document.getElementById(id).textContent;
+            let shader = gl.createShader(gl[type]);
+
+            // Set the shader program
+            gl.shaderSource(shader, shaderContent);
+
+            // Compile the shader
+            gl.compileShader(shader);
+
+            // Check the result of compilation
+            if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+
+                let error = gl.getShaderInfoLog(shader);
+
+                console.log('Failed to compile shader: ' + error);
+
+                gl.deleteShader(shader);
+
+                return null;
+            }
+
+            return shader;
+
+        }
+
+        function initShader () {
+
+            let fragmentShader = getShader('fs', 'FRAGMENT_SHADER');
+            let vertexShader =  getShader('vs','VERTEX_SHADER');
+
+            //console.log(fragmentShader);
+            //console.log(vertexShader);
+            // Create a program object
+            let program = gl.createProgram();
+
+            // Attach the shader objects
+            gl.attachShader(program, fragmentShader);
+            gl.attachShader(program, vertexShader);
+
+            // Link the program object
+            gl.linkProgram(program);
+
+            if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+
+                let error = gl.getProgramInfoLog(shader);
+
+                console.log('Failed to link program: ' + error);
+                gl.deleteProgram(program);
+
+                gl.deleteShader(fragmentShader);
+
+                gl.deleteShader(vertexShader);
+
+                return null;
+
+            }
+
+            gl.useProgram(program);
+
+            gl.program = program;
+
+        }
+
+
+        /*
+         *  顶点着色器接收顶点纹理坐标，光栅化后传入片元着色器  v_texture
+         *
+         *  片元着色器根据片元的纹理坐标， 从图像中抽取出纹理颜色， 赋值当前片元 loadTexture
+         *
+         * */
+
+        function initVertexBuffers() {
+
+            let verticesTexture = new Float32Array([
+                -0.5, 0.5,  0.0, 1.5,
+                -0.5, -0.5, 0.0, 0.0,
+                0.5 , 0.5,  1.0, 1.5,
+                0.5,  -0.5, 1.0, 0.0,
+            ]);
+
+            let n = 4;
+
+            let vertexTextureBuffer = gl.createBuffer();
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexTextureBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, verticesTexture, gl.STATIC_DRAW);
+
+            let fSize = verticesTexture.BYTES_PER_ELEMENT;
+
+            let a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+
+            gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, fSize * 4, 0); //缓冲区对象进行分配
+
+            gl.enableVertexAttribArray(a_Position);  //开启attribute变量
+
+            let a_texture = gl.getAttribLocation(gl.program, 'a_texture');
+
+            gl.vertexAttribPointer(a_texture, 2, gl.FLOAT, false, fSize * 4, fSize * 2);
+
+            gl.enableVertexAttribArray(a_texture);
+
+            return n;
+        }
+
+        function initTextures (n) {
+
+            let texture = gl.createTexture(); // 创建纹理
+
+            let u_sampler = gl.getUniformLocation(gl.program, 'u_sampler');  //获取取样器的位置
+
+            var img = new Image();
+
+            img.onload = img.onerror = loadTexture;
+
+            img.src = '../texture/sky.jpg';
+
+            function loadTexture () {
+
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);  //y轴翻转 webgl纹理坐标系中t轴与图片坐标系的y轴相反
+
+                gl.activeTexture(gl.TEXTURE0); //激活纹理单元  webgl中至少支持8个纹理单元
+
+                gl.bindTexture(gl.TEXTURE_2D, texture);  //绑定纹理对象  支持两种纹理，二维纹理（gl.TEXTURE_2D）、立方体纹理（gl.TEXTURE_CUBE_MAP）
+
+                /*
+                *  @param 目标对象 gl.TEXTURE_2D OR gl.TEXTURE_CUBE_MAP
+                *
+                *  @param 纹理参数 gl.TEXTURE_MAG_FILTER 纹理放大填充， 纹理参数默认值： gl.LINEAR  注： 16*16 映射到32*32上，纹理尺寸会*2进行填充
+                *                 gl.TEXTURE_MIN_FILTER 纹理缩小填充, gl.NEAREST_MIPMAP_LINEAR
+                *                 gl.TEXTURE_WRAP_S 纹理左右填充      gl.REPEAT
+                *                 gl.TEXTURE_WRAP_T 纹理上下填充      gl.REPEAT
+                *
+                *  @param 纹理参数值 gl.TEXTURE_MAG_FILTER and
+                *                   gl.TEXTURE_MIN_FILTER  可赋值常量（非金字塔纹理类型）  gl.LINEAR OR gl.NEAREST
+                *                   gl.TEXTURE_WRAP_S and
+                *                   gl.TEXTURE_WRAP_T 可赋值常量 gl.REPEAT (平铺重复)、 gl.MIRRORED_REPEAT (镜像对称重复)、gl.CLAMP_TO_EDGE (纹理图像边缘值)
+                *
+                *
+                * */
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); //配置纹理参数，设置纹理图像如何映射到图形上
+
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
+
+                /*
+                *
+                *  @param 目标对象
+                *
+                *  @param level （主要用于金子塔纹理） 即传0
+                *
+                *  @param 图像内部格式  gl.RGB、gl.RGBA、gl.ALPHA、gl.LUMINANCE(流明 物体表面亮度)
+                *
+                *  @param 纹理数据个数  （必须与图像内部格式一致）
+                *
+                *  @param 纹理数据类型  gl.UNSIGNED_BYTE (无符号整型，每个颜色占1字节)、gl.UNSIGNED_SHORT_num_num_num_num (每个颜色分别占num比特)
+                *
+                *  @param 纹理图
+                *
+                * */
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img); //将纹理图像分配至纹理对象
+
+                gl.uniform1i(u_sampler, 0); //将0号纹理传递给着色器中的取样变量
+
+                gl.clear(gl.COLOR_BUFFER_BIT);
+
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, n);
+
+
+            }
+
+        }
+
+        function init () {
+
+            canvas = document.getElementById('webgl');
+
+            gl = canvas.getContext('webgl');
+
+            if (!gl) {
+                console.log('Failed to get the rendering context for WebGL');
+                return;
+            }
+
+
+            initShader();
+
+            let n = initVertexBuffers();
+
+            gl.clearColor(0, 0, 0, 1);
+
+            initTextures(n);
+
+
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>
