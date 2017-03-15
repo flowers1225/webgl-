@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>oth</title>
+</head>
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+    <script src="../libs/cuon-matrix.js"></script>
+    <script src="../libs/dat.gui.js"></script>
+
+    <script id="vs" type="x-shader/x-vertex">
+
+        attribute vec4 a_Position;
+        uniform mat4 u_projecViewMatrix;
+        attribute vec4 a_color;
+        varying vec4 v_color;
+
+        void main () {
+            gl_Position =  u_projecViewMatrix * a_Position;
+            v_color = a_color;
+        }
+
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+        varying vec4 v_color;
+
+        void main () {
+            gl_FragColor = v_color;
+        }
+    </script>
+
+    <script>
+        let gl, canvas;
+
+        let gui;
+
+        let projecMatrix = new Matrix4(); //投影矩阵
+
+        let viewMatrix = new Matrix4(); //视图矩阵
+
+        let projecViewMatrix = new Matrix4(); //投影视图矩阵
+
+        let u_projecViewMatrix; //存储顶点着色器位置
+
+        let count = 0;
+
+        let param = {
+            eyeX: 0.25,
+            eyeY: 0.25,
+            eyeZ: 0.25,
+            near: 0,
+            far: 2,
+        }
+
+        function getShader (id, type) {
+
+            let shaderContent = document.getElementById(id).textContent;
+            let shader = gl.createShader(gl[type]);
+
+            // Set the shader program
+            gl.shaderSource(shader, shaderContent);
+
+            // Compile the shader
+            gl.compileShader(shader);
+
+            // Check the result of compilation
+            if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+
+                let error = gl.getShaderInfoLog(shader);
+
+                console.log('Failed to compile shader: ' + error);
+
+                gl.deleteShader(shader);
+
+                return null;
+            }
+
+            return shader;
+
+        }
+
+        function initShader () {
+
+            let fragmentShader = getShader('fs', 'FRAGMENT_SHADER');
+            let vertexShader =  getShader('vs','VERTEX_SHADER');
+
+            //console.log(fragmentShader);
+            //console.log(vertexShader);
+            // Create a program object
+            let program = gl.createProgram();
+
+            // Attach the shader objects
+            gl.attachShader(program, fragmentShader);
+            gl.attachShader(program, vertexShader);
+
+            // Link the program object
+            gl.linkProgram(program);
+
+            if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+
+                let error = gl.getProgramInfoLog(shader);
+
+                console.log('Failed to link program: ' + error);
+                gl.deleteProgram(program);
+
+                gl.deleteShader(fragmentShader);
+
+                gl.deleteShader(vertexShader);
+
+                return null;
+
+            }
+
+            gl.useProgram(program);
+
+            gl.program = program;
+
+        }
+
+        function initVertexBuffers() {
+
+            let vertices = new Float32Array([
+                0.0,   0.5,  -0.4,  0.4,  1.0,  0.4,
+                -0.5, -0.5,  -0.4,  0.4,  1.0,  0.4,
+                0.5,  -0.5,  -0.4,  1.0,  0.4,  0.4,
+
+                0.5,   0.4,  -0.2,  1.0,  0.4,  0.4,
+                -0.5,  0.4,  -0.2,  1.0,  1.0,  0.4,
+                0.0,  -0.6,  -0.2,  1.0,  1.0,  0.4,
+
+                0.0,   0.5,   0.0,  0.4,  0.4,  1.0,
+                -0.5, -0.5,   0.0,  0.4,  0.4,  1.0,
+                0.5,  -0.5,   0.0,  1.0,  0.4,  0.4,
+            ]);
+
+            let n = 9;
+
+            let fSize = vertices.BYTES_PER_ELEMENT;
+
+            let vertexBuffer = gl.createBuffer();
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+            let a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+
+            gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, fSize * 6, 0); //缓冲区对象进行分配
+
+            gl.enableVertexAttribArray(a_Position);  //开启attribute变量
+
+            let a_color = gl.getAttribLocation(gl.program, 'a_color');
+
+            gl.vertexAttribPointer(a_color, 3, gl.FLOAT, false, fSize * 6, fSize * 3);
+
+            gl.enableVertexAttribArray(a_color);
+
+            return n;
+        }
+
+
+        function render () {
+
+            projecMatrix.setOrtho(-1.0, 1.0, -1.0, 1.0, param.near, param.far);
+
+            viewMatrix.setLookAt(param.eyeX, param.eyeY, param.eyeZ, 0, 0, 0, 0, 1, 0);
+
+            projecViewMatrix.set(projecMatrix).multiply(viewMatrix);
+
+            gl.uniformMatrix4fv(u_projecViewMatrix, false, projecViewMatrix.elements);  //第二个参数必须设置为false，webgl 没有行列交换功能
+
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.drawArrays(gl.TRIANGLES, 0, count); //0代表从第几个点开始绘制， count表示绘制几个点
+
+        }
+
+        function init () {
+
+            canvas = document.getElementById('webgl');
+
+            gl = canvas.getContext('webgl');
+
+            if (!gl) {
+                console.log('Failed to get the rendering context for WebGL');
+                return;
+            }
+
+            initShader();
+
+            count = initVertexBuffers();
+
+            u_projecViewMatrix = gl.getUniformLocation(gl.program, 'u_projecViewMatrix');
+
+            gl.clearColor(0, 0, 0, 1);
+
+            //gui
+            buildGui();
+
+            render();
+
+        }
+
+        function buildGui () {
+
+            clearGui();
+
+            gui.add(param, 'eyeX', -2, 2, 0.001).onChange(val => {
+
+                param.eyeX = val;
+
+                render();
+            });
+
+            gui.add(param, 'eyeY', -2, 2, 0.001).onChange(val => {
+
+                param.eyeY = val;
+
+                render();
+            });
+
+            gui.add(param, 'eyeZ', -2, 2, 0.001).onChange(val => {
+
+                param.eyeZ = val;
+
+                render();
+            });
+
+            gui.add(param, 'near', 0, 2, 0.001).onChange(val => {
+
+                param.near = val;
+
+                render();
+            });
+
+            gui.add(param, 'far', 0.5, 2, 0.001).onChange(val => {
+
+                param.far = val;
+
+                render();
+            });
+        }
+
+        function clearGui () {
+
+            if(gui) gui.destroy();
+
+            gui = new dat.GUI();
+
+            gui.open();
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>
