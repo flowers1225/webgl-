@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>perspective</title>
+    <title>cube</title>
 </head>
 <body>
     <canvas id="webgl" width="400" height="400"></canvas>
@@ -34,6 +34,7 @@
     </script>
 
     <script>
+
         let gl, canvas;
 
         let gui;
@@ -51,9 +52,9 @@
         let count = 0;
 
         let param = {
-            eyeX: 0,
-            eyeY: 0,
-            eyeZ: 5,
+            eyeX: 5,
+            eyeY: 5,
+            eyeZ: 8,
             near: 1,
             far: 100,
         }
@@ -125,40 +126,74 @@
 
         function initVertexBuffers() {
 
+            // Create a cube
+            //    v6----- v5
+            //   /|      /|
+            //  v1------v0|
+            //  | |     | |
+            //  | |v7---|-|v4
+            //  |/      |/
+            //  v2------v3
+
             let vertices = new Float32Array([
-                0.0,   1.0,  0.0,   0.6,  0.0,  0.0,
-                -0.5, -1.0,  0.0,   0.6,  0.0,  0.0,
-                0.5,  -1.0,  0.0,   0.6,  0.0,  0.0,
-
-                0.0,   1.0,  -2.0,  0.0,  0.6,  0.0,
-                -0.5, -1.0,  -2.0,  0.0,  0.6,  0.0,
-                0.5,  -1.0,  -2.0,  0.0,  0.6,  0.0,
-
-                0.0,   1.0,  -4.0,  0.0,  0.0,  0.6,
-                -0.5, -1.0,  -4.0,  0.0,  0.0,  0.6,
-                0.5,  -1.0,  -4.0,  0.0,  0.0,  0.6,
+                 1.0, 1.0, 1.0,  -1.0, 1.0, 1.0,  -1.0,-1.0, 1.0,   1.0,-1.0, 1.0,  // v0-v1-v2-v3 front
+                 1.0, 1.0, 1.0,   1.0,-1.0, 1.0,   1.0,-1.0,-1.0,   1.0, 1.0,-1.0,  // v0-v3-v4-v5 right
+                 1.0, 1.0, 1.0,   1.0, 1.0,-1.0,  -1.0, 1.0,-1.0,  -1.0, 1.0, 1.0,  // v0-v5-v6-v1 up
+                -1.0, 1.0, 1.0,  -1.0, 1.0,-1.0,  -1.0,-1.0,-1.0,  -1.0,-1.0, 1.0,  // v1-v6-v7-v2 left
+                -1.0,-1.0,-1.0,   1.0,-1.0,-1.0,   1.0,-1.0, 1.0,  -1.0,-1.0, 1.0,  // v7-v4-v3-v2 down
+                 1.0,-1.0,-1.0,  -1.0,-1.0,-1.0,  -1.0, 1.0,-1.0,   1.0, 1.0,-1.0   // v4-v7-v6-v5 back
             ]);
 
-            let n = 9;
+            let colors = new Float32Array([
+                0.4, 0.4, 1.0,  0.4, 0.4, 1.0,  0.4, 0.4, 1.0,  0.4, 0.4, 1.0,  // v0-v1-v2-v3 front(blue)
+                0.4, 1.0, 0.4,  0.4, 1.0, 0.4,  0.4, 1.0, 0.4,  0.4, 1.0, 0.4,  // v0-v3-v4-v5 right(green)
+                1.0, 0.4, 0.4,  1.0, 0.4, 0.4,  1.0, 0.4, 0.4,  1.0, 0.4, 0.4,  // v0-v5-v6-v1 up(red)
+                1.0, 1.0, 0.4,  1.0, 1.0, 0.4,  1.0, 1.0, 0.4,  1.0, 1.0, 0.4,  // v1-v6-v7-v2 left
+                1.0, 0.4, 1.0,  1.0, 0.4, 1.0,  1.0, 0.4, 1.0,  1.0, 0.4, 1.0,  // v7-v4-v3-v2 down
+                0.4, 1.0, 1.0,  0.4, 1.0, 1.0,  0.4, 1.0, 1.0,  0.4, 1.0, 1.0   // v4-v7-v6-v5 back
+            ]);
 
-            let fSize = vertices.BYTES_PER_ELEMENT;
+            let indices = new Uint16Array([
+                0, 1, 2,   0, 2, 3,    // front
+                4, 5, 6,   4, 6, 7,    // right
+                8, 9,10,   8,10,11,    // up
+                12,13,14,  12,14,15,    // left
+                16,17,18,  16,18,19,    // down
+                20,21,22,  20,22,23     // back
+            ]);
 
-            let vertexBuffer = gl.createBuffer();
+            let n = indices.length;
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            // vertices write buffer
+            let verticesBuffer = gl.createBuffer();
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
             let a_Position = gl.getAttribLocation(gl.program, 'a_Position');
 
-            gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, fSize * 6, 0); //缓冲区对象进行分配
+            gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0); //缓冲区对象进行分配
 
             gl.enableVertexAttribArray(a_Position);  //开启attribute变量
 
+            //color write buffer
+            let colorBuffer = gl.createBuffer();
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+
             let a_color = gl.getAttribLocation(gl.program, 'a_color');
 
-            gl.vertexAttribPointer(a_color, 3, gl.FLOAT, false, fSize * 6, fSize * 3);
+            gl.vertexAttribPointer(a_color, 3, gl.FLOAT, false, 0, 0);
 
             gl.enableVertexAttribArray(a_color);
+
+            // index write buffer
+            let indexBuffer = gl.createBuffer();
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
 
             return n;
         }
@@ -166,9 +201,9 @@
 
         function render () {
 
-            modelMatrix.setTranslate(0.75, 0, 0);
+            modelMatrix.setTranslate(0, 0, 0);
 
-            viewMatrix.setLookAt(param.eyeX, param.eyeY, param.eyeZ, 0, 0, -100, 0, 1, 0);
+            viewMatrix.setLookAt(param.eyeX, param.eyeY, param.eyeZ, 0, 0, 0, 0, 1, 0);
 
             projecMatrix.setPerspective(30, canvas.width / canvas.height, param.near, param.far);
 
@@ -178,15 +213,19 @@
 
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); //深度清除
 
-            gl.drawArrays(gl.TRIANGLES, 0, count); //0代表从第几个点开始绘制， count表示绘制几个点
-
-            modelMatrix.setTranslate(-0.75, 0, 0);
-
-            mvpMatrix.set(projecMatrix).multiply(viewMatrix).multiply(modelMatrix);
-
-            gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements);  //第二个参数必须设置为false，webgl 没有行列交换功能
-
-            gl.drawArrays(gl.TRIANGLES, 0, count); //0代表从第几个点开始绘制， count表示绘制几个点
+            /*
+            * drawElements()
+            *
+            * @param 绘制方法
+            *
+            * @param 绘制顶点数
+            *
+            * @param 索引数据类型
+            *
+            * @param 从哪个点绘制
+            *
+            * */
+            gl.drawElements(gl.LINE_STRIP, count, gl.UNSIGNED_SHORT, 0);
 
         }
 
@@ -222,21 +261,21 @@
 
             clearGui();
 
-            gui.add(param, 'eyeX', -2, 5, 0.001).onChange(val => {
+            gui.add(param, 'eyeX', -30, 50, 0.001).onChange(val => {
 
                 param.eyeX = val;
 
                 render();
             });
 
-            gui.add(param, 'eyeY', -2, 5, 0.001).onChange(val => {
+            gui.add(param, 'eyeY', -30, 50, 0.001).onChange(val => {
 
                 param.eyeY = val;
 
                 render();
             });
 
-            gui.add(param, 'eyeZ', -2, 20, 0.001).onChange(val => {
+            gui.add(param, 'eyeZ', -30, 50, 0.001).onChange(val => {
 
                 param.eyeZ = val;
 
