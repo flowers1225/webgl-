@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>perspective</title>
+</head>
+<body>
+    <canvas id="webgl" width="400" height="400"></canvas>
+    <script src="../libs/cuon-matrix.js"></script>
+    <script src="../libs/dat.gui.js"></script>
+
+    <script id="vs" type="x-shader/x-vertex">
+
+        attribute vec4 a_Position;
+        attribute vec4 a_color;
+        uniform mat4 u_mvpMatrix;
+        varying vec4 v_color;
+
+        void main () {
+            gl_Position =  u_mvpMatrix * a_Position;
+            v_color = a_color;
+        }
+
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+        varying vec4 v_color;
+
+        void main () {
+            gl_FragColor = v_color;
+        }
+    </script>
+
+    <script>
+        let gl, canvas;
+
+        let gui;
+
+        let projecMatrix = new Matrix4(); //投影矩阵
+
+        let viewMatrix = new Matrix4(); //视图矩阵
+
+        let modelMatrix = new Matrix4(); //模型矩阵
+
+        let mvpMatrix = new Matrix4(); //投影视图矩阵
+
+        let u_mvpMatrix; //存储顶点着色器位置
+
+        let count = 0;
+
+        let param = {
+            eyeX: 0,
+            eyeY: 0,
+            eyeZ: 5,
+            near: 1,
+            far: 100,
+        }
+
+        function getShader (id, type) {
+
+            let shaderContent = document.getElementById(id).textContent;
+            let shader = gl.createShader(gl[type]);
+
+            // Set the shader program
+            gl.shaderSource(shader, shaderContent);
+
+            // Compile the shader
+            gl.compileShader(shader);
+
+            // Check the result of compilation
+            if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+
+                let error = gl.getShaderInfoLog(shader);
+
+                console.log('Failed to compile shader: ' + error);
+
+                gl.deleteShader(shader);
+
+                return null;
+            }
+
+            return shader;
+
+        }
+
+        function initShader () {
+
+            let fragmentShader = getShader('fs', 'FRAGMENT_SHADER');
+            let vertexShader =  getShader('vs','VERTEX_SHADER');
+
+            //console.log(fragmentShader);
+            //console.log(vertexShader);
+            // Create a program object
+            let program = gl.createProgram();
+
+            // Attach the shader objects
+            gl.attachShader(program, fragmentShader);
+            gl.attachShader(program, vertexShader);
+
+            // Link the program object
+            gl.linkProgram(program);
+
+            if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+
+                let error = gl.getProgramInfoLog(shader);
+
+                console.log('Failed to link program: ' + error);
+                gl.deleteProgram(program);
+
+                gl.deleteShader(fragmentShader);
+
+                gl.deleteShader(vertexShader);
+
+                return null;
+
+            }
+
+            gl.useProgram(program);
+
+            gl.program = program;
+
+        }
+
+        function initVertexBuffers() {
+
+            let vertices = new Float32Array([
+                0.0,   1.0,  0.0,   0.6,  0.0,  0.0,
+                -0.5, -1.0,  0.0,   0.6,  0.0,  0.0,
+                0.5,  -1.0,  0.0,   0.6,  0.0,  0.0,
+
+                0.0,   1.0,  -2.0,  0.0,  0.6,  0.0,
+                -0.5, -1.0,  -2.0,  0.0,  0.6,  0.0,
+                0.5,  -1.0,  -2.0,  0.0,  0.6,  0.0,
+
+                0.0,   1.0,  -4.0,  0.0,  0.0,  0.6,
+                -0.5, -1.0,  -4.0,  0.0,  0.0,  0.6,
+                0.5,  -1.0,  -4.0,  0.0,  0.0,  0.6,
+            ]);
+
+            let n = 9;
+
+            let fSize = vertices.BYTES_PER_ELEMENT;
+
+            let vertexBuffer = gl.createBuffer();
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+            let a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+
+            gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, fSize * 6, 0); //缓冲区对象进行分配
+
+            gl.enableVertexAttribArray(a_Position);  //开启attribute变量
+
+            let a_color = gl.getAttribLocation(gl.program, 'a_color');
+
+            gl.vertexAttribPointer(a_color, 3, gl.FLOAT, false, fSize * 6, fSize * 3);
+
+            gl.enableVertexAttribArray(a_color);
+
+            return n;
+        }
+
+
+        function render () {
+
+            modelMatrix.setTranslate(0.75, 0, 0);
+
+            viewMatrix.setLookAt(param.eyeX, param.eyeY, param.eyeZ, 0, 0, -100, 0, 1, 0);
+
+            projecMatrix.setPerspective(30, canvas.width / canvas.height, param.near, param.far);
+
+            mvpMatrix.set(projecMatrix).multiply(viewMatrix).multiply(modelMatrix);
+
+            gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements);  //第二个参数必须设置为false，webgl 没有行列交换功能
+
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); //深度清除
+
+            gl.drawArrays(gl.TRIANGLES, 0, count); //0代表从第几个点开始绘制， count表示绘制几个点
+
+            modelMatrix.setTranslate(-0.75, 0, 0);
+
+            mvpMatrix.set(projecMatrix).multiply(viewMatrix).multiply(modelMatrix);
+
+            gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements);  //第二个参数必须设置为false，webgl 没有行列交换功能
+
+            gl.drawArrays(gl.TRIANGLES, 0, count); //0代表从第几个点开始绘制， count表示绘制几个点
+
+        }
+
+        function init () {
+
+            canvas = document.getElementById('webgl');
+
+            gl = canvas.getContext('webgl');
+
+            if (!gl) {
+                console.log('Failed to get the rendering context for WebGL');
+                return;
+            }
+
+            initShader();
+
+            count = initVertexBuffers();
+
+            u_mvpMatrix = gl.getUniformLocation(gl.program, 'u_mvpMatrix');
+
+            gl.enable(gl.DEPTH_TEST); //开启隐藏面消除功能
+
+            gl.clearColor(0, 0, 0, 1);
+
+            //gui
+            buildGui();
+
+            render();
+
+        }
+
+        function buildGui () {
+
+            clearGui();
+
+            gui.add(param, 'eyeX', -2, 5, 0.001).onChange(val => {
+
+                param.eyeX = val;
+
+                render();
+            });
+
+            gui.add(param, 'eyeY', -2, 5, 0.001).onChange(val => {
+
+                param.eyeY = val;
+
+                render();
+            });
+
+            gui.add(param, 'eyeZ', -2, 20, 0.001).onChange(val => {
+
+                param.eyeZ = val;
+
+                render();
+            });
+
+            gui.add(param, 'near', 0.1, 10, 0.001).onChange(val => {
+
+                param.near = val;
+
+                render();
+            });
+
+            gui.add(param, 'far', 1, 200, 0.001).onChange(val => {
+
+                param.far = val;
+
+                render();
+            });
+        }
+
+        function clearGui () {
+
+            if(gui) gui.destroy();
+
+            gui = new dat.GUI();
+
+            gui.open();
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>

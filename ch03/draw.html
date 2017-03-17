@@ -106,6 +106,8 @@
             let vertexBuffer = gl.createBuffer();
 
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+
+            // @gl.STATIC_DRAW 向缓冲区写入一次数据，绘制多次
             gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
             let a_Position = gl.getAttribLocation(gl.program, 'a_Position');
