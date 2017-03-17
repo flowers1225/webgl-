@@ -2,7 +2,7 @@
 
 《webgl编程指南》
 
-### ch03
+## ch03
 
 - 绘制流程
 
@@ -31,14 +31,14 @@ new Matrix4();
 .setRotate(angle, 0, 0, 1);
 ```
 
-### ch04
+## ch04
 
 ```
 //动画
 requestAnimationFrame();
 ```
 
-### ch05
+## ch05
 
 - 点、颜色、大小绘制
 ```
@@ -101,5 +101,56 @@ void main () {
     gl.texImage2D();
     gl.uniform1i();
     gl.drawArrays();
+
+```
+
+## ch07
+
+深度信息：在哪里、看哪里、视野宽、能看多远。
+
+观察者 (观察方向、可是距离)
+
+视点：观察者的位置。
+
+视线：从视点出发沿观察方向的射线。
+
+视图矩阵: 表示观察者的状态。
+```
+             [观察点位置]      (0,0,0)
+viewMatrix = [观察点目标位置]  (0,0,-z)
+             [上方向]          (0,1,0)
+```
+模型矩阵：图形经过旋转、位移、缩放变化得到的矩阵。
+
+> 模型视图矩阵 = 视图矩阵 * 模型矩阵
+
+可视空间（正射投影orthographic、透视投影perspective）/
+
+投影矩阵。
+
+> 模型视图投影矩阵 = 投影矩阵 * 模型视图矩阵
+
+投影遮挡问题: 后绘制图形会覆盖先绘制图形。
+
+解决：隐藏面消除
+
+```
+/*
+ * @param gl.DEPTH_TEST  隐藏面消除
+ *        gl.BLEND       混合
+ *        gl.POLYGON_OFFSET_FILL 多边形位移
+ *        ...
+ */
+gl.enable(gl.DEPTH_TEST); //开启某个功能
+
+gl.disable()//关闭某个功能
+
+gl.clear(gl.DEPTH_BUFFER_BIT); //清楚深度缓冲区
+
+```
+深度冲突
+```
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(1.0, 1.0); //设置偏移量
 
 ```
