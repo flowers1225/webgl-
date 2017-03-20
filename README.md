@@ -154,3 +154,41 @@ gl.clear(gl.DEPTH_BUFFER_BIT); //清楚深度缓冲区
     gl.polygonOffset(1.0, 1.0); //设置偏移量
 
 ```
+
+- 创建方体
+
+```
+// 顶点示意图
+//    v6----- v5
+//   /|      /|
+//  v1------v0|
+//  | |     | |
+//  | |v7---|-|v4
+//  |/      |/
+//  v2------v3
+```
+1、drawArrays()
+
+（1）gl.TRIANGLES 绘制36个顶点（一面（两个三角形）6个顶点 * 6面）
+
+（2）gl.TRIANGLES_FAN 绘制24个顶点，绘制6次。(一个面4个顶点 * 6面)
+
+2、drawElements() 通过顶点索引来绘制
+
+（1）gl.TRIANGLES 绘制8个顶点（共用顶点的关系）
+
+（2）绘制不同面颜色时需要绘制24个顶点。
+
+两者区别：
+
+`bindBuffer()`和`bufferData()`时
+
+drawArrays使用的是`gl.ARRAY_BUFFER`顶点数据
+
+drawElements 使用的是`gl.ELEMENT_ARRAY_BUFFER`顶点索引
+
+索引的存储使用`无符号整数型`存储，假设顶点数超过256个使用`Uint16Arrays()`来存储。
+
+
+
+
