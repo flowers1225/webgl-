@@ -149,6 +149,10 @@ gl.clear(gl.DEPTH_BUFFER_BIT); //清楚深度缓冲区
 
 ```
 深度冲突
+
+原因：当图形、物体的两个表面极为接近时，在深度缓冲区有限精度中分不清前后。
+
+解决：webgl多边形偏移机制（在z轴上添加一个偏移量）
 ```
     gl.enable(gl.POLYGON_OFFSET_FILL);
     gl.polygonOffset(1.0, 1.0); //设置偏移量
