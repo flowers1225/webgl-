@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>point-light</title>
+    <title>point-light-fragment</title>
 </head>
 <body>
     <canvas id="webgl" width="400" height="400"></canvas>
@@ -15,35 +15,24 @@
         attribute vec4 a_color;
         attribute vec4 a_normal;
 
-        uniform vec3 u_lightColor;
-        uniform vec3 u_lightPoint;
-        uniform vec3 u_lightAmbient;
         uniform mat4 u_mvpMatrix;
         uniform mat4 u_normalMatrix;
         uniform mat4 u_modelMatrix;
 
         varying vec4 v_color;
+        varying vec3 v_normal;
+        varying vec3 v_position;
 
         void main () {
             gl_Position =  u_mvpMatrix * a_Position;
 
             //对法向量归一化
-            vec3 normal = normalize(vec3(u_normalMatrix * a_normal));
+            v_normal = normalize(vec3(u_normalMatrix * a_normal));
 
-            vec4 vertexPosition = u_modelMatrix * a_Position;
+            v_position = vec3(u_modelMatrix * a_Position);
 
-            //光线方向
-            vec3 lightDirection = normalize(u_lightPoint - vec3(vertexPosition));
+            v_color = a_color;
 
-            //计算光线方向和法向量点积
-            float nDot = max(dot(lightDirection, normal), 0.0);
-
-            vec3 ambient = u_lightAmbient * vec3(a_color);
-
-            //计算漫反射光颜色 入射光颜色 * 表面基底色*（光线方向 点乘 法线方向）
-            vec3 diffuse = u_lightColor * vec3(a_color) * nDot;
-
-            v_color = vec4(diffuse + ambient, 1.0);
         }
 
     </script>
@@ -51,12 +40,31 @@
     <script id="fs" type="x-shader/x-fragment">
         precision mediump float;
 
+        uniform vec3 u_lightColor;
+        uniform vec3 u_lightPoint;
+        uniform vec3 u_lightAmbient;
+
+        varying vec3 v_normal;
+        varying vec3 v_position;
         varying vec4 v_color;
 
         void main () {
-            gl_FragColor = v_color;
+
+            //光线方向
+            vec3 lightDirection = normalize(u_lightPoint - v_position);
+
+            //计算光线方向和法向量点积
+            float nDot = max(dot(lightDirection, normalize(v_normal)), 0.0);
+
+            vec3 ambient = u_lightAmbient * vec3(v_color);
+
+            //计算漫反射光颜色 入射光颜色 * 表面基底色*（光线方向 点乘 法线方向）
+            vec3 diffuse = u_lightColor * vec3(v_color) * nDot;
+
+            gl_FragColor = vec4(diffuse + ambient, 1.0);
         }
     </script>
+
 
     <script>
 
@@ -97,10 +105,10 @@
             near: 1,
             far: 100,
             lightColor:[255,255,255],
-            ambientColor:[0,0,0],
-            pointX: 0.0,
-            pointY: 3.0,
-            pointZ: 4.0,
+            ambientColor:[51,51,51],
+            pointX: 2.5,
+            pointY: 4.0,
+            pointZ: 3.5,
             animation: false,
         }
 
@@ -118,7 +126,7 @@
             // Check the result of compilation
             if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
 
-                let error = gl.getShaderInfoLog(shader);
+                let error = gl.getShad erInfoLog(shader);
 
                 console.log('Failed to compile shader: ' + error);
 
