@@ -126,7 +126,7 @@
             // Check the result of compilation
             if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
 
-                let error = gl.getShad erInfoLog(shader);
+                let error = gl.getShaderInfoLog(shader);
 
                 console.log('Failed to compile shader: ' + error);
 
