@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Title</title>
+    <style>
+        body, html{
+            width: 100%;
+            height: 100%;
+            background: #000;
+            margin: 0;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="webgl"></canvas>
+
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec4 a_Position;
+        uniform vec4 u_Translation;
+
+        void main () {
+            gl_Position = a_Position + u_Translation;
+        }
+
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+         uniform float u_time;
+        // float u_time = 0.1;
+
+        float rand(vec2 co)
+        {
+            return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
+        void main () {
+            // gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+            vec2 uv = gl_FragCoord.xy;
+
+             // gl_FragColor = vec4(1.0, 0.1, 0.0, 1.0);
+
+            if (mod(u_time, 2.0) > 1.9)
+                uv.x += cos(u_time * 10.0 + uv.y * 1000.0) * 0.01;
+//
+//            //if (mod(u_time, 4.0) > 3.0)
+//            //	uv = floor(uv * 32.0) / 32.0;
+//
+            if (mod(u_time, 5.0) > 3.75)
+                uv += 1.0 / 64.0 * (2.0 * vec2(rand(floor(uv * 32.0) + vec2(32.05,236.0)), rand(floor(uv.y * 32.0) + vec2(-62.05,-36.0))) - 1.0);
+
+             gl_FragColor = vec4(0.145, 0.157, 0.157, 0.0);
+
+            if (rand(vec2(u_time)) > 0.90)
+                gl_FragColor = vec4(dot(gl_FragColor.rgb, vec3(0.25, 0.5, 0.25)));
+//
+            gl_FragColor.rgb += 0.25 * vec3(rand(u_time + uv / vec2(-213, 5.53)), rand(u_time - uv / vec2(213, -5.53)), rand(u_time + uv / vec2(213, 5.53))) - 0.125;
+
+        }
+    </script>
+
+    <script>
+        let gl, canvas;
+
+        let u_time;
+
+        let n;
+
+        let deltaTime;
+        let time = +new Date() / 1000;
+
+        function getShader (id, type) {
+
+            let shaderContent = document.getElementById(id).textContent;
+            let shader = gl.createShader(gl[type]);
+
+            // Set the shader program
+            gl.shaderSource(shader, shaderContent);
+
+            // Compile the shader
+            gl.compileShader(shader);
+
+            // Check the result of compilation
+            if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+
+                let error = gl.getShaderInfoLog(shader);
+
+                console.log('Failed to compile shader: ' + error);
+
+                gl.deleteShader(shader);
+
+                return null;
+            }
+
+            return shader;
+
+        }
+
+        function getUniformLocation (gl, name) {
+            return gl.getUniformLocation(gl.program, name);
+        }
+
+        function initShader () {
+
+            let fragmentShader = getShader('fs', 'FRAGMENT_SHADER');
+            let vertexShader =  getShader('vs','VERTEX_SHADER');
+
+            //console.log(fragmentShader);
+            //console.log(vertexShader);
+            // Create a program object
+            let program = gl.createProgram();
+
+            // Attach the shader objects
+            gl.attachShader(program, fragmentShader);
+            gl.attachShader(program, vertexShader);
+
+            // Link the program object
+            gl.linkProgram(program);
+
+            if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+
+                let error = gl.getProgramInfoLog(shader);
+
+                console.log('Failed to link program: ' + error);
+                gl.deleteProgram(program);
+
+                gl.deleteShader(fragmentShader);
+
+                gl.deleteShader(vertexShader);
+
+                return null;
+
+            }
+
+            gl.useProgram(program);
+
+            gl.program = program;
+
+        }
+
+        function initVertexBuffers() {
+
+            let vertices = new Float32Array([
+                -1.0, -1.0,
+                -1.0, 1.0,
+                1.0, -1.0,
+                1.0, 1.0
+            ]);
+
+            let n = 4;
+
+            let vertexBuffer = gl.createBuffer();
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+
+            // @gl.STATIC_DRAW 向缓冲区写入一次数据，绘制多次
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+            let a_Position = gl.getAttribLocation(gl.program, 'a_Position');
+
+            gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, 0, 0); //缓冲区对象进行分配
+
+            gl.enableVertexAttribArray(a_Position);  //开启attribute变量
+
+            return n;
+        }
+
+        function init () {
+
+            canvas = document.getElementById('webgl');
+
+            gl = canvas.getContext('webgl');
+
+            if (!gl) {
+                console.log('Failed to get the rendering context for WebGL');
+                return;
+            }
+
+
+            initShader();
+
+            n = initVertexBuffers();
+
+            u_time = getUniformLocation(gl, 'u_time');
+
+            gl.clearColor(0, 0, 0, 1);
+
+            render();
+        }
+
+        function render () {
+
+            let newTime = +new Date() / 1000;
+            deltaTime = newTime - time;
+
+            gl.uniform1f(u_time, deltaTime);
+
+            // gl.clear(gl.COLOR_BUFFER_BIT);
+
+            // gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, n) //0代表从第几个点开始绘制， n表示绘制几个点
+            // gl.drawArrays(gl.TRIANGLE_FAN, 0, n); //以最后一条边为基础画第二个
+            //gl.drawArrays(gl.TRIANGLE_STRIP, 0, n); 以第二个点为起点开始画第二个三角
+
+            requestAnimationFrame(render);
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>
